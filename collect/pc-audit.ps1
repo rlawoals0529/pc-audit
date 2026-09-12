@@ -173,22 +173,25 @@ $boot = Read-Source -Name 'Boot log (Diagnostics-Performance)' -Fallback @() -Re
 
     $kindOf = @{ 101 = 'app'; 102 = 'driver'; 103 = 'service'; 106 = 'app'; 109 = 'driver'; 110 = 'service' }
     $byBoot = @{}
-    foreach ($event in $events) {
-        $xml = [xml] $event.ToXml()
+    # $entry rather than $event: $event is a PowerShell automatic variable, used by the
+    # eventing cmdlets, and assigning to it is a documented hazard. PSScriptAnalyzer caught
+    # this on the first CI run, which is exactly the kind of thing nobody catches by reading.
+    foreach ($entry in $events) {
+        $xml = [xml] $entry.ToXml()
         $data = @{}
         foreach ($item in $xml.Event.EventData.Data) { $data[$item.Name] = $item.'#text' }
         # Events from one boot share a BootTsVersion/bucket; the timestamp to the minute is a
         # good enough key and needs no assumption about which fields a given build emits.
-        $key = $event.TimeCreated.ToString('yyyy-MM-ddTHH:mm')
+        $key = $entry.TimeCreated.ToString('yyyy-MM-ddTHH:mm')
         if (-not $byBoot.ContainsKey($key)) {
             $byBoot[$key] = [pscustomobject] @{
-                at       = $event.TimeCreated.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                at       = $entry.TimeCreated.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
                 bootMs   = $null
                 degraded = New-Object System.Collections.ArrayList
             }
         }
         $record = $byBoot[$key]
-        if ($event.Id -eq 100) {
+        if ($entry.Id -eq 100) {
             if ($data.ContainsKey('BootTime')) { $record.bootMs = [int] $data['BootTime'] }
         } else {
             $name = $null
@@ -202,7 +205,7 @@ $boot = Read-Source -Name 'Boot log (Diagnostics-Performance)' -Fallback @() -Re
             if ($name -and $ms -gt 0) {
                 [void] $record.degraded.Add([pscustomobject] @{
                     name = $name
-                    kind = $kindOf[[int] $event.Id]
+                    kind = $kindOf[[int] $entry.Id]
                     ms   = $ms
                 })
             }
