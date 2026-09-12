@@ -14,10 +14,11 @@
 <main class="wrap">
 
   <header class="masthead">
+    <p class="eyebrow">Read-only</p>
     <h1>pc-audit</h1>
     <p class="lede">
-      A read-only audit of a Windows machine, billed against the goal you pick. It changes
-      nothing, and it will not print a number it did not measure.
+      An audit of a Windows machine, billed against the goal you pick. It changes nothing, and
+      it will not print a number it did not measure.
     </p>
   </header>
 
@@ -27,12 +28,20 @@
     <div class="controls">
       <fieldset class="profiles">
         <legend>Bill it against</legend>
-        <div id="profiles" class="profile-row"></div>
+        <div id="profiles" class="segmented"></div>
       </fieldset>
       <p class="summary" id="summary"></p>
+      <p class="summary promise">
+        Every line opens to say why it is here, what it was read from, and what would make it
+        wrong.
+      </p>
     </div>
 
-    <div class="statement" id="statement"></div>
+    <!-- A statement sits in a tray. The outer shell carries the hairline and the inset, the
+         inner surface carries the lines, and the two radii are concentric. -->
+    <div class="tray">
+      <div class="statement" id="statement"></div>
+    </div>
   </section>
 
   <section class="panel">

@@ -61,9 +61,21 @@ function metaLine(finding: Finding): string {
   return [...also, unknown].filter(Boolean).join(" · ");
 }
 
-function renderLine(finding: Finding): HTMLElement {
+/**
+ * One line of the bill.
+ *
+ * The amount, the title and the tier are always visible; the reasoning folds away behind a
+ * disclosure. That split is the whole reason this page is readable: every finding carries a
+ * paragraph saying what it means and what would make it wrong, which is the most valuable
+ * thing here and is also what stopped the statement being scannable. A bill you cannot run
+ * your eye down is not a bill.
+ */
+function renderLine(finding: Finding, index: number): HTMLElement {
   const line = document.createElement("article");
   line.className = "line";
+  // Drives the staggered entry from CSS. A custom property rather than an inline delay so the
+  // reduced-motion rule can switch the whole thing off in one place.
+  line.style.setProperty("--i", String(Math.min(index, 12)));
   line.append(amount(finding));
   line.append(text("h3", "", finding.title));
 
@@ -74,25 +86,69 @@ function renderLine(finding: Finding): HTMLElement {
   if (rest) meta.append(document.createTextNode(` · ${rest}`));
   line.append(meta);
 
-  line.append(text("p", "detail", finding.detail));
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  // Just "Why". The full promise - that each one says what would make the finding wrong - is
+  // made once above the statement. Repeating it on all fourteen lines is a label restating
+  // itself down the page, and it stops the bill being scannable, which is the thing the
+  // disclosure was added to fix in the first place.
+  summary.append(text("span", "chev", ""), text("span", "", "Why"));
+  details.append(summary);
+  details.append(text("p", "detail", finding.detail));
 
   const evidence = document.createElement("p");
   evidence.className = "evidence";
   evidence.append(document.createTextNode("Read from "));
-  for (const [index, source] of finding.sources.entries()) {
-    if (index) evidence.append(document.createTextNode(", "));
+  for (const [i, source] of finding.sources.entries()) {
+    if (i) evidence.append(document.createTextNode(", "));
     evidence.append(text("code", "", source.from));
     if (source.note) evidence.append(document.createTextNode(` (${source.note})`));
   }
-  line.append(evidence);
+  details.append(evidence);
 
-  if (finding.remedy) {
-    const remedy = document.createElement("p");
-    remedy.className = "remedy";
-    remedy.append(text("code", "", finding.remedy));
-    line.append(remedy);
-  }
+  if (finding.remedy) details.append(remedy(finding.remedy));
+  line.append(details);
   return line;
+}
+
+/**
+ * The command, with a button that copies it.
+ *
+ * These are things you are meant to run somewhere else, so selecting one by hand out of a
+ * wrapped line is the actual task the page was leaving to the reader. The clipboard write can
+ * reject - an insecure origin, a permission policy - so the button says what happened rather
+ * than silently doing nothing.
+ */
+function remedy(command: string): HTMLElement {
+  const wrap = document.createElement("p");
+  wrap.className = "remedy";
+  wrap.append(text("code", "", command));
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "copy";
+  button.textContent = "Copy";
+  button.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      button.textContent = "Copied";
+      button.dataset.done = "yes";
+    } catch {
+      button.textContent = "Select it";
+      // Do the next best thing rather than leaving them with a button that lied.
+      const range = document.createRange();
+      range.selectNodeContents(wrap.querySelector("code")!);
+      const selection = getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+    setTimeout(() => {
+      button.textContent = "Copy";
+      delete button.dataset.done;
+    }, 1600);
+  });
+  wrap.append(button);
+  return wrap;
 }
 
 function renderAside(className: string, heading: string, items: string[], footer?: string): HTMLElement {
@@ -123,7 +179,7 @@ function render(report: Report) {
   if (!report.costs.length) {
     out.append(text("p", "note", "Nothing found for this profile."));
   } else {
-    for (const finding of report.costs) out.append(renderLine(finding));
+    for (const [i, finding] of report.costs.entries()) out.append(renderLine(finding, i));
 
     const total = document.createElement("div");
     total.className = "total";
@@ -182,6 +238,9 @@ for (const p of PROFILES) {
   const label = document.createElement("label");
   label.htmlFor = input.id;
   label.textContent = p.label;
+  // Appended in source order, and the CSS slides the thumb with :has(input:nth-of-type(n)).
+  // The thumb is already in the markup ahead of these, so it stays behind them in the stack
+  // without needing a z-index fight.
   profileRow.append(input, label);
 }
 // One listener on the container rather than one per input: the group behaves as a unit and

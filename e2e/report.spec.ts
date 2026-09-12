@@ -101,12 +101,60 @@ test("lists the refusals, which is the argument the repo is making", async ({ pa
   await expect(page.locator(".refusal").first()).toContainText("Defender");
 });
 
+test.describe("the reasoning folds away", () => {
+  test("is closed by default, so the statement can be read as a statement", async ({ page }) => {
+    const open = await page.locator(".line details[open]").count();
+    expect(open).toBe(0);
+    await expect(page.locator(".line details summary").first()).toBeVisible();
+  });
+
+  test("opens on the keyboard, because it is a real disclosure", async ({ page }) => {
+    const first = page.locator(".line details").first();
+    await first.locator("summary").focus();
+    await page.keyboard.press("Enter");
+    await expect(first).toHaveAttribute("open", "");
+    // And the prose it was hiding is now readable.
+    await expect(first.locator(".detail")).toBeVisible();
+  });
+});
+
+test("commands can be copied, which is the only thing you do with them", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const line = page.locator(".line", { has: page.locator(".remedy") }).first();
+  await line.locator("details summary").click();
+  const command = (await line.locator(".remedy code").textContent())!;
+  await line.locator(".copy").click();
+  await expect(line.locator(".copy")).toHaveText("Copied");
+  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboard).toBe(command);
+});
+
 for (const backdrop of ["#ffffff", "#000000"]) {
   test(`clears AA in every palette over ${backdrop}`, async ({ page }) => {
     const probe = await probeContrast(page, themes, { backdrop });
     expect(probe.distinctPalettes).toBeGreaterThanOrEqual(themes.length - 1);
     expect(probe.styles, `only saw: ${probe.samples.join(", ")}`).toBeGreaterThan(9);
     expect(probe.classes.join(" ")).toContain("DIV.amount");
+    expect(probe.failures, describeFailures(probe.failures)).toEqual([]);
+  });
+}
+
+for (const backdrop of ["#ffffff", "#000000"]) {
+  test(`clears AA with every disclosure open, over ${backdrop}`, async ({ page }) => {
+    /*
+     * A second run with the reasoning expanded, and it is not redundant.
+     *
+     * The probe measures what is VISIBLE, and a closed <details> is not - Chromium does not
+     * even run style updates inside one. Every paragraph of reasoning on this page lives
+     * inside one of them, so without this run the most text-heavy part of the statement was
+     * going unmeasured in all fifteen palettes.
+     */
+    await page.evaluate(() => {
+      for (const d of document.querySelectorAll("details")) d.open = true;
+    });
+    const probe = await probeContrast(page, themes, { backdrop });
+    expect(probe.styles).toBeGreaterThan(12);
+    expect(probe.classes.join(" ")).toContain("P.detail");
     expect(probe.failures, describeFailures(probe.failures)).toEqual([]);
   });
 }

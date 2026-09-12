@@ -2,142 +2,320 @@
  *
  * The visual language of this page is a statement of account, because that is the argument:
  * these things are charging you something, here is the column, here is what it adds to, and
- * here is the part of the page where a number would be if anyone had measured one. Amounts
- * are right-aligned and tabular so the column can be read down without reading across, which
- * is the whole reason bills have looked like this for several hundred years.
+ * here is the part of the page where a number would be if anybody had measured one. Amounts
+ * are right-aligned and tabular so the column reads down without reading across, which is why
+ * bills have looked like this for several hundred years.
  *
- * Colours are yozora tokens. Nothing here invents one.
+ * Every colour is a yozora token. Nothing here invents one, and nothing here is a hex value,
+ * because a page that only looks right in one of the fifteen palettes is not finished.
  */
 
+/* The one motion curve on this page. Named once so nothing drifts into ease-in-out, which
+   reads as a default rather than as a decision. Decelerating hard at the end is what makes a
+   moving thing feel like it has mass. */
+:root {
+  --ease: cubic-bezier(.32, .72, 0, 1);
+  --fast: 180ms;
+  --slow: 420ms;
+
+  /* The page's own colours, captured where they are declared so they survive a swatch's
+     data-theme redefining every token on itself. */
+  --page-edge: var(--edge-strong);
+  --page-accent: var(--accent-text);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .2em;
+  font-weight: 600;
+  color: var(--accent-text);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 14px;
+}
+
 .masthead { margin-bottom: 8px; }
-.lede { color: var(--dim); max-width: 62ch; margin-top: 8px; }
+.lede { color: var(--dim); max-width: 62ch; margin-top: 10px; font-size: 16px; }
 
 /* ---- Controls ------------------------------------------------------------------------ */
 
-.controls { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: flex-start; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; }
 fieldset.profiles { border: 0; padding: 0; margin: 0; }
 fieldset.profiles legend {
-  font-size: 12px; text-transform: uppercase; letter-spacing: .9px;
-  font-weight: 600; color: var(--dim); padding: 0; margin-bottom: 8px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+  font-weight: 600; color: var(--dim); padding: 0; margin-bottom: 10px;
 }
-.profile-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /*
- * Real radio inputs, not buttons with aria-checked.
+ * A segmented control, not four separate pills.
  *
- * A radiogroup wants one tab stop, arrow keys between the options, and selection that follows
- * focus. A native radio group is all of that for nothing, correct in every browser and every
- * assistive technology, and it keeps working if the JavaScript does not. The palette picker
- * further down cannot use this - its options have to be painted in fifteen different
- * schemes - which is exactly why it carries code and this does not.
+ * Four options that are mutually exclusive and always visible is exactly what this shape is
+ * for: one enclosure says "pick one of these", where four detached pills say "here are four
+ * things" and leave you to work out that only one can be on.
+ *
+ * Real radio inputs underneath. A native radio group gives one tab stop, arrow keys between
+ * the options and selection that follows focus, correct in every browser and every assistive
+ * technology, and it keeps working if the JavaScript does not. The palette picker further down
+ * cannot use this - its options have to be painted in fifteen different schemes - which is
+ * exactly why that one carries code and this one does not.
  */
-.profile-row input { position: absolute; opacity: 0; pointer-events: none; }
-.profile-row label {
-  display: inline-block;
-  padding: 7px 14px;
+.segmented {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  padding: 4px;
   border-radius: 999px;
-  border: 1px solid var(--edge-strong);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--page-edge);
+  isolation: isolate;
+}
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 8px 18px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 13px;
+  white-space: nowrap;
+  color: var(--dim);
+  /* Named properties, never `all`: `all` would animate the border-radius and the grid, and
+     jank from that is hard to trace back to the line that caused it. */
+  transition: color var(--fast) var(--ease), background-color var(--slow) var(--ease);
+  /* 40px of hit area even though the text is 13px. */
+  min-height: 40px;
+  align-content: center;
 }
-.profile-row label:hover { background: var(--raised); }
-.profile-row input:checked + label {
+.segmented label:hover { color: var(--fg); }
+/* The ring is drawn on the label because the input it belongs to is off-screen. Without this
+   a keyboard user has no idea where they are. */
+.segmented input:focus-visible + label {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 3px;
+}
+
+/*
+ * The checked segment carries its own fill, and here is why it is not a sliding thumb.
+ *
+ * The first version of this had an accent-coloured thumb sliding behind the labels, driven by
+ * :has() with no JavaScript, which looked considerably better than what is here now. The
+ * contrast probe failed it at 1.07:1 in seven palettes, and the probe was right in the way
+ * that matters: the fill was on a SIBLING of the label, so the only thing making that text
+ * legible was another element happening to be painted behind it. Nothing can verify that -
+ * not the probe, not a person reading the CSS - and if the thumb ever fails to paint, the
+ * label is unreadable rather than merely plain.
+ *
+ * So the fill moved onto the element that holds the text, where --on-accent against --accent
+ * is a pair the palette guarantees and the probe can measure. The motion that is left is a
+ * colour transition rather than a slide. That is a real loss, and it is the right trade: this
+ * page argues that a number you cannot check is worth nothing, and the same goes for a
+ * contrast ratio.
+ */
+.segmented input:checked + label {
   background: var(--accent);
-  border-color: var(--accent);
   color: var(--on-accent);
   font-weight: 600;
 }
-/* :focus-visible lives on the input, which is off-screen, so the ring has to be drawn on the
-   label that stands in for it. Without this the keyboard user has no idea where they are. */
-.profile-row input:focus-visible + label {
-  outline: 2px solid var(--accent-text);
-  outline-offset: 2px;
+
+.summary { color: var(--dim); font-size: 13px; max-width: 52ch; margin-top: 26px; }
+/* Quieter by size, not by colour. Mixing --dim toward --bg to soften it took seven palettes
+   below AA: --dim is tuned to clear 4.5 against these grounds with nothing to spare, so any
+   step further from the foreground spends contrast the palette does not have. */
+.summary.promise { margin-top: 10px; font-size: 12px; }
+
+/* ---- The tray -------------------------------------------------------------------------
+   A statement is a sheet in a tray rather than text on a page. The outer shell carries the
+   hairline and a little padding; the inner surface carries the lines. The radii are
+   concentric - the inner one is the outer one minus the padding - which is the difference
+   between a nested thing and two rounded things that happen to overlap. */
+.tray {
+  margin-top: 24px;
+  padding: 8px;
+  border-radius: calc(var(--radius) + 8px);
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--edge) 70%, transparent);
+}
+.statement {
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 4px 22px 22px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--edge) 50%, transparent);
 }
 
-.summary { color: var(--dim); font-size: 13px; max-width: 54ch; margin-top: 4px; }
-
-/* ---- The bill ------------------------------------------------------------------------- */
-
-.statement { margin-top: 26px; }
+/* ---- Lines ----------------------------------------------------------------------------- */
 
 .line {
   display: grid;
   grid-template-columns: 7.5rem 1fr;
-  gap: 4px 20px;
-  padding: 16px 0;
-  border-top: 1px solid var(--edge);
+  gap: 2px 20px;
+  padding: 18px 0;
+  border-top: 1px solid color-mix(in srgb, var(--edge) 60%, transparent);
 }
 .line:first-child { border-top: 0; }
+
+/* Entry motion. Only transform and opacity, so the compositor handles it and no layout is
+   recomputed. The travel is small on purpose: a large one is the thing that reads as a
+   template, because the eye follows the movement instead of the content. */
+@keyframes line-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.line, .total {
+  animation: line-in var(--slow) var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
 
 .amount {
   font-variant-numeric: tabular-nums;
   text-align: right;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   white-space: nowrap;
+  letter-spacing: -.01em;
 }
-/* An unmeasured line gets an em dash-free placeholder that is visibly NOT a zero. A zero in
-   this column would be a claim, and the claim would be false. */
-.amount.none { color: var(--dim); font-weight: 400; }
+/* An unmeasured line gets a placeholder that is visibly NOT a zero. A zero in a column that
+   gets totalled is a claim, and the claim would be false. */
+.amount.none {
+  color: var(--dim);
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: .02em;
+}
 
 .line h3 { font-size: 15px; font-weight: 600; line-height: 1.35; }
-.line .meta { grid-column: 2; color: var(--dim); font-size: 12px; letter-spacing: .2px; }
-.line .detail { grid-column: 2; margin-top: 6px; max-width: 74ch; }
-.line .evidence { grid-column: 2; margin-top: 8px; font-size: 12px; color: var(--dim); }
-.line .evidence code { font-size: 12px; }
-.line .remedy { grid-column: 2; margin-top: 8px; }
-.line .remedy code {
-  display: inline-block;
-  background: var(--raised);
-  border: 1px solid var(--edge);
-  border-radius: 6px;
-  padding: 4px 8px;
+.line .meta {
+  grid-column: 2;
+  color: var(--dim);
   font-size: 12px;
+  letter-spacing: .01em;
+  margin-top: 4px;
 }
 
-.tier { text-transform: uppercase; letter-spacing: .8px; font-size: 11px; font-weight: 600; }
+/*
+ * The reasoning folds away.
+ *
+ * Every finding carries a paragraph explaining what it means and what would make it wrong,
+ * and that prose is the most valuable thing here - it is also what stopped the page being
+ * scannable. A bill you cannot run your eye down is not a bill. <details> rather than a
+ * hand-rolled disclosure: the keyboard, the roles and the find-in-page behaviour all come
+ * free, and browsers now expand a closed one to reach a search hit inside it.
+ */
+.line details { grid-column: 2; margin-top: 10px; }
+.line summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  color: var(--accent-text);
+  padding: 6px 0;
+  min-height: 32px;
+}
+.line summary::-webkit-details-marker { display: none; }
+.line summary:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 3px; border-radius: 4px; }
+.line summary .chev {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--fast) var(--ease);
+}
+.line details[open] summary .chev { transform: rotate(45deg); }
+
+.line .detail { max-width: 74ch; margin-top: 4px; }
+.line .evidence { margin-top: 10px; font-size: 12px; color: var(--dim); }
+.line .evidence code { font-size: 12px; }
+
+/* ---- Commands you might copy ------------------------------------------------------------ */
+
+.remedy { margin-top: 12px; display: flex; align-items: stretch; gap: 0; max-width: 100%; }
+.remedy code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  border-radius: 8px 0 0 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+.copy {
+  flex: none;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 0 14px;
+  min-width: 72px;
+  border: 0;
+  border-radius: 0 8px 8px 0;
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--dim);
+  cursor: pointer;
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.copy:hover { color: var(--fg); background: color-mix(in srgb, var(--raised) 70%, var(--fg)); }
+.copy:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 2px; }
+.copy[data-done="yes"] { color: var(--ok); }
+
+.tier { text-transform: uppercase; letter-spacing: .1em; font-size: 10px; font-weight: 700; }
 .tier-certain { color: var(--accent-text); }
 .tier-likely { color: var(--fg); }
 .tier-situational { color: var(--dim); }
+
+/* ---- The total --------------------------------------------------------------------------- */
 
 .total {
   display: grid;
   grid-template-columns: 7.5rem 1fr;
   gap: 4px 20px;
-  padding: 18px 0 0;
-  border-top: 2px solid var(--edge-strong);
-  margin-top: 4px;
+  padding: 20px 0 4px;
+  border-top: 2px solid var(--page-edge);
+  margin-top: 6px;
 }
-.total .amount { font-size: 19px; }
+.total .amount { font-size: 22px; letter-spacing: -.02em; }
 .total .says { grid-column: 2; }
 .total .means { grid-column: 2; color: var(--dim); font-size: 12px; margin-top: 8px; max-width: 70ch; }
 
+/* ---- Asides ------------------------------------------------------------------------------ */
+
 .aside {
-  margin-top: 34px;
+  margin-top: 26px;
   padding: 18px 20px;
   border-radius: var(--radius);
-  border: 1px solid var(--edge-strong);
+  box-shadow: inset 0 0 0 1px var(--page-edge);
 }
-.aside h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .9px; color: var(--dim); }
-.aside ul { margin: 10px 0 0 18px; }
-.aside li { margin-top: 6px; }
-.aside.risk { border-color: var(--caution); }
+.aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--dim); }
+.aside ul { margin: 12px 0 0 18px; }
+.aside li { margin-top: 8px; }
+.aside.risk { box-shadow: inset 0 0 0 1px var(--caution); }
 .aside.risk h3 { color: var(--caution); }
 
 .synthetic {
-  margin-top: 18px;
-  padding: 12px 16px;
+  margin: 4px 0 0;
+  padding: 14px 16px;
   border-radius: var(--radius);
-  border: 1px dashed var(--edge-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--caution) 55%, transparent);
   color: var(--dim);
   font-size: 13px;
 }
 
-/* ---- Paste ---------------------------------------------------------------------------- */
+/* ---- Paste --------------------------------------------------------------------------------- */
 
 .cmd {
   background: var(--raised);
-  border: 1px solid var(--edge);
+  box-shadow: inset 0 0 0 1px var(--edge);
   border-radius: var(--radius);
   padding: 12px 14px;
   margin-top: 14px;
@@ -148,43 +326,49 @@ textarea {
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: var(--radius);
-  border: 1px solid var(--edge-strong);
+  border: 1px solid var(--page-edge);
   background: var(--panel);
   color: var(--fg);
   font: 12px/1.5 var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
   resize: vertical;
+  transition: border-color var(--fast) var(--ease);
 }
-textarea:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 1px; }
+textarea:hover { border-color: var(--accent); }
+textarea:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 1px; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
 .actions button {
   font: inherit;
   font-size: 13px;
-  padding: 8px 16px;
+  padding: 10px 18px;
+  min-height: 40px;
   border-radius: 999px;
-  border: 1px solid var(--edge-strong);
+  border: 1px solid var(--page-edge);
   background: var(--raised);
   color: var(--fg);
   cursor: pointer;
+  transition: border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 .actions button:hover { border-color: var(--accent); }
-.actions button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+/* Pressing it moves it. Nothing else on the page tells you the click landed. */
+.actions button:active { transform: scale(.97); }
+.actions button:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 2px; }
 .note { color: var(--dim); font-size: 12px; }
 .note.bad { color: var(--err); }
 
-/* ---- Refusals -------------------------------------------------------------------------- */
+/* ---- Refusals -------------------------------------------------------------------------------- */
 
 .refusals { margin-top: 18px; }
-.refusal { padding: 16px 0; border-top: 1px solid var(--edge); }
+.refusal { padding: 18px 0; border-top: 1px solid color-mix(in srgb, var(--edge) 60%, transparent); }
 .refusal:first-child { border-top: 0; }
 .refusal h3 { font-size: 15px; font-weight: 600; }
-.refusal .claim { color: var(--dim); font-size: 13px; margin-top: 4px; }
-.refusal .why { margin-top: 8px; max-width: 74ch; }
+.refusal .claim { color: var(--dim); font-size: 13px; margin-top: 6px; }
+.refusal .why { margin-top: 10px; max-width: 74ch; }
 
 .verdict {
   display: inline-block;
-  font-size: 11px; text-transform: uppercase; letter-spacing: .8px; font-weight: 700;
-  padding: 2px 8px; border-radius: 999px; margin-right: 8px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  padding: 3px 9px; border-radius: 999px; margin-right: 9px;
   border: 1px solid currentColor;
 }
 .verdict-harmful { color: var(--err); }
@@ -192,38 +376,46 @@ textarea:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 
 .verdict-obsolete { color: var(--dim); }
 .verdict-depends { color: var(--caution); }
 
-/* ---- Palette --------------------------------------------------------------------------- */
+/* ---- Palette ---------------------------------------------------------------------------------- */
 
-:root {
-  /* The page's own colours, captured where they are declared so they survive a swatch's
-     data-theme redefining every token on itself. */
-  --page-edge: var(--edge-strong);
-  --page-accent: var(--accent-text);
-}
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .swatches button {
   all: unset;
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 14px;
+  min-height: 40px;
+  box-sizing: border-box;
   border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
   background: var(--bg);
   color: var(--fg);
   box-shadow: 0 0 0 1px var(--page-edge);
+  transition: transform var(--fast) var(--ease);
 }
+.swatches button:hover { transform: translateY(-1px); }
+.swatches button:active { transform: scale(.97); }
 .swatches button:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 2px; }
 .swatches button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--page-accent); }
 .swatches .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
-.swatches .scheme { width: 100%; color: var(--dim); font-size: 12px; margin-top: 8px; }
+.swatches .scheme { width: 100%; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; margin-top: 10px; }
 
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
 }
 
-@media (max-width: 640px) {
+/* Off, not shortened. For some people this is a symptom trigger rather than a taste. */
+@media (prefers-reduced-motion: reduce) {
+  .line, .total { animation: none; }
+  .line summary .chev, .swatches button, .actions button { transition: none; }
+}
+
+@media (max-width: 680px) {
   .line, .total { grid-template-columns: 1fr; }
   .amount { text-align: left; }
-  .line .meta, .line .detail, .line .evidence, .line .remedy, .total .says, .total .means { grid-column: 1; }
+  .line .meta, .line details, .total .says, .total .means { grid-column: 1; }
+  /* Four segments do not fit at phone width, so the enclosure wraps to two rows. The thumb
+     cannot follow that, so it is dropped and the checked segment carries the fill itself. */
+  .segmented { grid-auto-flow: row; grid-template-columns: 1fr 1fr; grid-auto-columns: auto; }
 }
