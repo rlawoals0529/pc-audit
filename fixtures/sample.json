@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "collectedAt": "2026-09-12T09:00:00Z",
+  "real": false,
+  "machine": {
+    "windows": "Windows 11 Pro",
+    "build": "26100.1742",
+    "elevated": false,
+    "unreadable": ["Get-MpComputerStatus (needs an elevated session)"]
+  },
+  "displays": [
+    { "name": "LG ULTRAGEAR", "currentHz": 60, "availableHz": [60, 100, 120, 144], "width": 2560, "height": 1440, "primary": true },
+    { "name": "DELL U2422H", "currentHz": 60, "availableHz": [60], "width": 1920, "height": 1080, "primary": false }
+  ],
+  "boot": [
+    { "at": "2026-09-12T08:12:00Z", "bootMs": 41200, "mainPathBootMs": 22100, "postBootMs": 19100,
+      "degraded": [
+        { "name": "Razer Synapse Service", "kind": "service", "ms": 4820 },
+        { "name": "OneDrive.exe", "kind": "app", "ms": 2310 },
+        { "name": "iCUE.exe", "kind": "app", "ms": 1640 },
+        { "name": "rzudd.sys", "kind": "driver", "ms": 180 }
+      ] },
+    { "at": "2026-09-11T07:58:00Z", "bootMs": 39800,
+      "degraded": [
+        { "name": "Razer Synapse Service", "kind": "service", "ms": 4410 },
+        { "name": "OneDrive.exe", "kind": "app", "ms": 2580 }
+      ] },
+    { "at": "2026-09-10T08:31:00Z", "bootMs": 40500,
+      "degraded": [{ "name": "Razer Synapse Service", "kind": "service", "ms": 5010 }] },
+    { "at": "2026-08-30T08:02:00Z", "bootMs": 24300, "degraded": [] },
+    { "at": "2026-08-29T07:49:00Z", "bootMs": 23100, "degraded": [] },
+    { "at": "2026-08-28T08:20:00Z", "bootMs": 25600, "degraded": [] }
+  ],
+  "startup": [
+    { "name": "OneDrive.exe", "publisher": "Microsoft Corporation", "enabled": true },
+    { "name": "Steam", "publisher": "Valve Corporation", "enabled": true },
+    { "name": "Discord", "publisher": "Discord Inc.", "enabled": true },
+    { "name": "EpicGamesLauncher", "publisher": "Epic Games Inc.", "enabled": false }
+  ],
+  "services": [
+    { "name": "RzActionSvc", "display": "Razer Synapse Service", "state": "Running", "startMode": "Auto", "microsoft": false, "dependents": [], "memoryMb": 96 },
+    { "name": "CorsairService", "display": "Corsair Service", "state": "Running", "startMode": "Auto", "microsoft": false, "dependents": [], "memoryMb": 61 },
+    { "name": "AdobeARMservice", "display": "Adobe Acrobat Update Service", "state": "Running", "startMode": "Auto", "microsoft": false, "dependents": [] },
+    { "name": "Spooler", "display": "Print Spooler", "state": "Running", "startMode": "Auto", "microsoft": true, "dependents": ["Fax"], "memoryMb": 12 }
+  ],
+  "tasks": [
+    { "path": "\\GoogleUpdateTaskMachineUA", "name": "GoogleUpdateTaskMachineUA", "state": "Ready", "triggers": ["Logon"], "author": "Google LLC" },
+    { "path": "\\Microsoft\\Windows\\Defrag\\ScheduledDefrag", "name": "ScheduledDefrag", "state": "Ready", "triggers": ["Weekly"], "author": "Microsoft" }
+  ],
+  "memory": { "totalMb": 16384, "availableMb": 2100, "committedMb": 21800, "commitLimitMb": 24576 },
+  "storage": [
+    { "drive": "C:", "mediaType": "SSD", "busType": "NVMe", "totalGb": 476.9, "freeGb": 31.2, "system": true },
+    { "drive": "D:", "mediaType": "HDD", "busType": "SATA", "totalGb": 1863.0, "freeGb": 820.4, "fragmentationPercent": 27, "system": false }
+  ],
+  "gpu": [
+    { "name": "NVIDIA GeForce RTX 4070", "driverVersion": "31.0.15.5222", "driverDate": "2026-02-04T00:00:00Z", "memoryMb": 12288 }
+  ],
+  "power": { "activePlan": "Balanced", "activePlanGuid": "381b4222-f694-41f0-9685-ff5bb260df2e", "onBattery": false },
+  "graphics": { "hags": false, "gameDvr": true, "gameBar": true, "vrr": false },
+  "defender": { "realtimeEnabled": false, "signatureAgeDays": 3 },
+  "updates": { "serviceStartMode": "Manual", "lastInstalledDays": 12 }
+}

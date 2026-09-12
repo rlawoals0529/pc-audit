@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-theme="moonlit-skyline">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pc-audit</title>
+<link rel="stylesheet" href="../theme/palettes.css">
+<link rel="stylesheet" href="../theme/base.css">
+<link rel="stylesheet" href="../theme/layout-flat.css">
+<link rel="stylesheet" href="../theme/texture.css">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body class="grain">
+<main class="wrap">
+
+  <header class="masthead">
+    <h1>pc-audit</h1>
+    <p class="lede">
+      A read-only audit of a Windows machine, billed against the goal you pick. It changes
+      nothing, and it will not print a number it did not measure.
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>The statement</h2>
+
+    <div class="controls">
+      <fieldset class="profiles">
+        <legend>Bill it against</legend>
+        <div id="profiles" class="profile-row"></div>
+      </fieldset>
+      <p class="summary" id="summary"></p>
+    </div>
+
+    <div class="statement" id="statement"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Your own machine</h2>
+    <p>
+      Run this in PowerShell. It reads; it has no cmdlet in it that can change anything, and
+      <code>src/collector.test.ts</code> checks that by scanning the script rather than by
+      promising it.
+    </p>
+    <pre class="cmd"><code>powershell -ExecutionPolicy Bypass -File collect\pc-audit.ps1 &gt; report.json</code></pre>
+    <p>
+      Add <code>-Redact</code> if the snapshot is going anywhere but your own disk. It takes
+      out your username, your home directory and your machine name, and the report is
+      identical either way - none of the checks read a path.
+    </p>
+    <p>
+      Then paste the file below. It is read in this tab by the same code the command line
+      runs, and <strong>nothing is uploaded</strong> - this page makes no network requests at
+      all after it loads.
+    </p>
+    <label class="visually-hidden" for="paste">Your report.json</label>
+    <textarea id="paste" rows="4" spellcheck="false" placeholder="Paste the contents of report.json"></textarea>
+    <div class="actions">
+      <button type="button" id="read">Read it</button>
+      <button type="button" id="sample">Back to the sample</button>
+      <span class="note" id="status" role="status"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>What this will not tell you to do</h2>
+    <p>
+      The genre is mostly cargo cult, and a list of tweaks with no account of the famous bad
+      ones is another entry in it. Every claim below is written the way it is usually made,
+      so you can find the one you just read somewhere else.
+    </p>
+    <div class="refusals" id="refusals"></div>
+  </section>
+
+  <footer class="panel">
+    <h2>Palette</h2>
+    <div id="palette" class="swatches" aria-label="Palette"></div>
+  </footer>
+
+</main>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

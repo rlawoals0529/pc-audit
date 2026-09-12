@@ -1,0 +1,25 @@
+{
+  "name": "pc-audit",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "pc-audit": "bin/pc-audit.mjs"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "check": "npm run build && npm test && npm run e2e",
+    "report": "node bin/pc-audit.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,119 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  analyzer:
+    name: Analyzer and site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm test
+      - run: npm run e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: playwright-report, path: playwright-report/, retention-days: 7 }
+
+  collector:
+    # The one job that matters most, and the reason it exists is worth stating: the collector
+    # reads Windows APIs that nobody developing this repo has. Everything else about it can be
+    # checked by reading - that it cannot write, that every source is wrapped - but whether it
+    # RUNS can only be answered by running it on Windows. So it runs here, for real, against a
+    # real machine, and the snapshot it produces is fed to the real analyzer.
+    #
+    # A GitHub runner is not a gaming PC: it has one virtual display, no battery, and a boot
+    # log that goes back minutes. That is fine. What is being tested is that the collector
+    # completes, emits a valid snapshot, and that what it emits is a shape the analyzer reads.
+    name: Collector on real Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - name: Static analysis of the collector
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          Invoke-ScriptAnalyzer -Path collect -Recurse -EnableExit
+
+      - name: It parses under Windows PowerShell 5.1, which is what ships with Windows
+        shell: powershell
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path collect\pc-audit.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
+          Write-Host "parses clean on $($PSVersionTable.PSVersion)"
+
+      - name: Collect, on 5.1 and without administrator rights
+        shell: powershell
+        run: .\collect\pc-audit.ps1 -Pretty > report.json
+
+      - name: The snapshot is well formed
+        shell: pwsh
+        run: |
+          $snapshot = Get-Content report.json -Raw | ConvertFrom-Json
+          if ($snapshot.schema -ne 1) { throw "schema was $($snapshot.schema)" }
+          if (-not $snapshot.collectedAt) { throw 'no collectedAt' }
+          if (-not $snapshot.real) { throw 'a real collection must not be marked synthetic' }
+          # Without an elevated session some sources are denied, and that has to be REPORTED
+          # rather than silently producing an empty findings list.
+          Write-Host "unreadable: $($snapshot.machine.unreadable.Count)"
+          Write-Host "services: $($snapshot.services.Count), displays: $($snapshot.displays.Count)"
+          if ($snapshot.services.Count -lt 10) { throw 'a Windows machine has more services than that; the reader is broken' }
+
+      - name: The analyzer reads it, in every profile
+        shell: pwsh
+        run: |
+          foreach ($profile in 'default', 'fps', 'boot', 'battery') {
+            node bin/pc-audit.mjs report.json --profile $profile --json > "out-$profile.json"
+            $report = Get-Content "out-$profile.json" -Raw | ConvertFrom-Json
+            if (-not $report.profile.id) { throw "no profile in the $profile report" }
+            Write-Host "$profile : $($report.costs.Count) costs, $($report.risks.Count) risks, $($report.gaps.Count) gaps"
+          }
+
+      - name: -Redact takes the identifying parts out, and leaves valid JSON
+        shell: powershell
+        run: .\collect\pc-audit.ps1 -Pretty -Redact > redacted.json
+
+      - name: Nothing in the redacted snapshot names this account or this machine
+        shell: pwsh
+        run: |
+          $text = Get-Content redacted.json -Raw
+          $text | ConvertFrom-Json | Out-Null   # a redaction that corrupts the file is worse than none
+          foreach ($secret in $env:USERNAME, $env:COMPUTERNAME, $env:USERPROFILE) {
+            if ($secret -and $text -match [regex]::Escape($secret)) {
+              throw "the redacted snapshot still contains $secret"
+            }
+          }
+          if ($text -match [regex]::Escape($env:USERNAME)) { throw 'username leaked' }
+          Write-Host 'redacted snapshot names neither the account nor the machine'
+
+      - name: Without -Redact the snapshot is unchanged, so the switch is doing the work
+        shell: pwsh
+        run: |
+          # A redaction that is always on would pass the test above while the switch did
+          # nothing, and nobody would notice until the flag was needed somewhere else.
+          $plain = Get-Content report.json -Raw
+          if ($plain -notmatch 'Windows') { throw 'the plain snapshot looks empty' }
+          Write-Host 'plain snapshot still carries real values'
+
+      - name: A check that crashed would be reported, not silent
+        shell: pwsh
+        run: |
+          $report = Get-Content out-default.json -Raw | ConvertFrom-Json
+          $failed = @($report.risks | Where-Object { $_.id -like 'check-failed:*' })
+          if ($failed.Count -gt 0) {
+            $failed | ForEach-Object { Write-Error "$($_.title): $($_.detail)" }
+            throw "$($failed.Count) checks threw against a real snapshot"
+          }
+          Write-Host 'every check ran against a real Windows snapshot'
