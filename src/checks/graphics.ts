@@ -3,6 +3,7 @@
  * and two of them reported with the caveat the guides leave off.
  */
 import type { Check, Finding } from "../model.ts";
+import { list } from "../shape.ts";
 
 /** How old a driver has to be before it is worth mentioning. Two release cycles, roughly:
  *  vendors ship monthly, and chasing every release is its own kind of cargo cult. */
@@ -69,7 +70,7 @@ export const driverAge: Check = {
   run(snapshot) {
     const findings: Finding[] = [];
     const now = Date.parse(snapshot.collectedAt);
-    for (const gpu of snapshot.gpu ?? []) {
+    for (const gpu of list(snapshot.gpu)) {
       if (!gpu.driverDate || !gpu.name) continue;
       const date = Date.parse(gpu.driverDate);
       if (!Number.isFinite(date) || !Number.isFinite(now)) continue;

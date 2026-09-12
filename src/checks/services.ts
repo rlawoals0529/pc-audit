@@ -7,6 +7,7 @@
  * nothing else depends on, and leaves the decision where it belongs.
  */
 import type { Check, Finding, ServiceItem } from "../model.ts";
+import { list } from "../shape.ts";
 
 /** Running, starts itself, and nothing would break. Microsoft-signed services are excluded
  *  not because they are sacred but because the dependency graph understates them badly:
@@ -17,7 +18,7 @@ export function unclaimed(services: ServiceItem[]): ServiceItem[] {
       s.state === "Running" &&
       /^auto/i.test(s.startMode ?? "") &&
       s.microsoft === false &&
-      (s.dependents?.length ?? 0) === 0,
+      (list(s.dependents).length) === 0,
   );
 }
 
@@ -28,7 +29,7 @@ export const idleServices: Check = {
     "depends on. Named from this machine rather than from a list.",
 
   run(snapshot) {
-    const found = unclaimed(snapshot.services ?? []);
+    const found = unclaimed(list(snapshot.services));
     if (!found.length) return [];
     const withMemory = found.filter((s) => Number.isFinite(s.memoryMb));
     const totalMb = withMemory.reduce((sum, s) => sum + (s.memoryMb ?? 0), 0);
@@ -67,8 +68,8 @@ export const logonTasks: Check = {
     "startup list, which is why a machine can look clean there and still be busy.",
 
   run(snapshot) {
-    const atLogon = (snapshot.tasks ?? []).filter(
-      (t) => t.state === "Ready" && (t.triggers ?? []).some((x) => /logon/i.test(x)),
+    const atLogon = list(snapshot.tasks).filter(
+      (t) => t.state === "Ready" && list(t.triggers).some((x) => /logon/i.test(x)),
     );
     // Windows ships plenty of its own, and a report that lists forty Microsoft maintenance
     // tasks is one nobody reads to the end.

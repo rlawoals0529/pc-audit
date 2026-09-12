@@ -13,6 +13,7 @@
  * 9.73ms difference is not an estimate of anything - it is the definition of the two modes.
  */
 import type { Check, Display, Finding } from "../model.ts";
+import { list } from "../shape.ts";
 
 /** Frames arrive no faster than the panel refreshes, whatever the GPU manages. */
 export const frameIntervalMs = (hz: number): number => 1000 / hz;
@@ -20,7 +21,7 @@ export const frameIntervalMs = (hz: number): number => 1000 / hz;
 /** The highest mode the panel advertises. Null when nothing usable was reported - a remote
  *  session and some virtual displays report no mode list at all. */
 export function bestMode(display: Display): number | null {
-  const modes = (display.availableHz ?? []).filter((hz) => Number.isFinite(hz) && hz > 0);
+  const modes = list(display.availableHz).filter((hz) => Number.isFinite(hz) && hz > 0);
   return modes.length ? Math.max(...modes) : null;
 }
 
@@ -37,7 +38,7 @@ export const displayRefresh: Check = {
 
   run(snapshot) {
     const findings: Finding[] = [];
-    for (const [index, display] of (snapshot.displays ?? []).entries()) {
+    for (const [index, display] of list(snapshot.displays).entries()) {
       const current = display.currentHz;
       const best = bestMode(display);
       if (!current || !best) continue;
@@ -60,7 +61,7 @@ export const displayRefresh: Check = {
         tier: "certain",
         sources: [{
           from: "QueryDisplayConfig / Win32_VideoController",
-          note: `${current}Hz current, modes offered: ${(display.availableHz ?? []).join(", ")}`,
+          note: `${current}Hz current, modes offered: ${list(display.availableHz).join(", ")}`,
         }],
         remedy: "Settings > System > Display > Advanced display > Choose a refresh rate",
       });

@@ -183,9 +183,24 @@ describe("honesty about what was not read", () => {
   });
 
   it("reports a check that throws instead of losing the whole run", () => {
-    const exploding = { ...sample, displays: { length: "not an array" } as unknown as [] };
+    /*
+     * A throwing getter, because a merely WRONG value no longer explodes.
+     *
+     * This used to pass a bare object as `displays`, which crashed the check - until list()
+     * started wrapping exactly that shape, since a machine with one display really does send
+     * it. The test would then have kept passing for a new reason: nothing threw at all.
+     * Reaching for something that throws when read keeps the test about what it claims to be
+     * about, which is what the report does with a check that dies rather than what kills one.
+     */
+    const exploding = { ...sample };
+    Object.defineProperty(exploding, "displays", {
+      get() { throw new TypeError("this field cannot be read"); },
+      enumerable: true,
+    });
     const report = build(exploding, profile("fps"));
     expect(report.risks.map((f) => f.id)).toContain("check-failed:display-refresh");
+    expect(report.risks.find((f) => f.id === "check-failed:display-refresh")!.detail)
+      .toContain("this field cannot be read");
     // And the rest of the report survived.
     expect(report.costs.length).toBeGreaterThan(0);
   });

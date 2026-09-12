@@ -9,6 +9,7 @@
  * machine's own measurement of your machine.
  */
 import type { BootRecord, Check } from "../model.ts";
+import { list } from "../shape.ts";
 
 /** The middle value, so one pathological boot after a Windows update does not set the tone. */
 export function median(values: number[]): number | null {
@@ -22,7 +23,7 @@ export function median(values: number[]): number | null {
 export function blamed(boots: BootRecord[]): { name: string; kind: string; ms: number; boots: number }[] {
   const totals = new Map<string, { name: string; kind: string; ms: number; boots: number }>();
   for (const boot of boots) {
-    for (const item of boot.degraded ?? []) {
+    for (const item of list(boot.degraded)) {
       if (!Number.isFinite(item.ms)) continue;
       const seen = totals.get(item.name) ?? { name: item.name, kind: item.kind, ms: 0, boots: 0 };
       seen.ms += item.ms;
@@ -42,7 +43,7 @@ export const bootDegraded: Check = {
     "event log. Reading it beats any general list of programs to disable.",
 
   run(snapshot) {
-    const boots = snapshot.boot ?? [];
+    const boots = list(snapshot.boot);
     if (!boots.length) return [];
     return blamed(boots)
       // Under a fifth of a second is below what anybody notices, and reporting it turns a
@@ -77,7 +78,7 @@ export const bootTrend: Check = {
     "before them, is the only way to say whether a machine is actually getting slower.",
 
   run(snapshot) {
-    const boots = (snapshot.boot ?? []).filter((b) => Number.isFinite(b.bootMs));
+    const boots = (list(snapshot.boot)).filter((b) => Number.isFinite(b.bootMs));
     // Three each side, so "recent" and "earlier" are each a median rather than a reading.
     if (boots.length < 6) return [];
     const times = boots.map((b) => b.bootMs!);
@@ -123,9 +124,9 @@ export const startupItems: Check = {
     "Windows actually timed carry their number and the rest are honest about having none.",
 
   run(snapshot) {
-    const enabled = (snapshot.startup ?? []).filter((s) => s.enabled !== false && s.name);
+    const enabled = list(snapshot.startup).filter((s) => s.enabled !== false && s.name);
     if (!enabled.length) return [];
-    const timed = new Set(blamed(snapshot.boot ?? []).map((b) => b.name.toLowerCase()));
+    const timed = new Set(blamed(list(snapshot.boot)).map((b) => b.name.toLowerCase()));
     // Anything the boot log already timed is reported by boot-degraded, with its cost. Listing
     // it again here without one would be the same item twice, worse the second time.
     const untimed = enabled.filter((s) => !timed.has((s.name ?? "").toLowerCase()));

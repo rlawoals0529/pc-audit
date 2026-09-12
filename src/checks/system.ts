@@ -3,6 +3,7 @@
  * you turn off without saying so.
  */
 import type { Check, Finding } from "../model.ts";
+import { list } from "../shape.ts";
 
 /** Below this, Windows starts struggling to stage updates and grow the pagefile. The number
  *  is a rule of thumb rather than a documented threshold, which is why the finding carries
@@ -17,7 +18,7 @@ export const systemDrive: Check = {
 
   run(snapshot) {
     const findings: Finding[] = [];
-    for (const drive of snapshot.storage ?? []) {
+    for (const drive of list(snapshot.storage)) {
       if (!drive.system || !drive.freeGb || !drive.totalGb) continue;
       const percent = (drive.freeGb / drive.totalGb) * 100;
       if (percent >= LOW_DISK_PERCENT) continue;
@@ -48,7 +49,7 @@ export const fragmentation: Check = {
 
   run(snapshot) {
     const findings: Finding[] = [];
-    for (const drive of snapshot.storage ?? []) {
+    for (const drive of list(snapshot.storage)) {
       if (drive.mediaType !== "HDD" || drive.fragmentationPercent == null) continue;
       if (drive.fragmentationPercent < 15) continue;
       findings.push({

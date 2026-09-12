@@ -14,6 +14,7 @@
  * quietly congratulates a machine whose event log was denied.
  */
 import type { Dimension, Finding, Snapshot } from "./model.ts";
+import { list } from "./shape.ts";
 import { UNITS } from "./model.ts";
 import { CHECKS } from "./checks/index.ts";
 import { PROFILES, rank, relevantTo, type Profile } from "./profiles.ts";
@@ -103,7 +104,7 @@ export function build(snapshot: Snapshot, profile: Profile): Report {
     costs,
     risks,
     total,
-    gaps: snapshot.machine?.unreadable ?? [],
+    gaps: list(snapshot.machine?.unreadable),
     refusals,
   };
 }

@@ -143,7 +143,7 @@ Worth being exact about, since half of this repo targets an operating system:
 
 | | |
 | --- | --- |
-| The analyzer, profiles, cost model, ranking, report, file encodings | 45 unit tests |
+| The analyzer, profiles, cost model, ranking, report, file encodings and PowerShell's JSON shapes | 52 unit tests |
 | The page, in all 15 palettes over a white and a black backdrop | 13 browser tests, contrast measured rather than eyeballed |
 | The collector cannot write, cannot send, and wraps every source | checked by scanning the source, in the fast suite |
 | **The collector actually runs** | **CI, on a real `windows-latest` runner** - it collects, the snapshot is checked for shape, and all four profiles are built from it |
