@@ -11,6 +11,7 @@
  *   node bin/pc-audit.mjs --refusals
  */
 import { readFileSync } from "node:fs";
+import { parseSnapshot, SnapshotReadError } from "../src/read.ts";
 import { build, describeTotal } from "../src/report.ts";
 import { PROFILES, profileById } from "../src/profiles.ts";
 import { REFUSALS } from "../src/refusals.ts";
@@ -52,9 +53,13 @@ if (!profile) die(`unknown profile "${profileId}". One of: ${PROFILES.map((p) =>
 
 let snapshot;
 try {
-  snapshot = JSON.parse(readFileSync(file, "utf8"));
+  // Bytes, not a string. Windows PowerShell 5.1 writes redirected output as UTF-16, so
+  // reading this as UTF-8 fails on the first byte of the file the README told you to make.
+  snapshot = parseSnapshot(readFileSync(file));
 } catch (error) {
-  die(`could not read ${file}: ${error.message}`);
+  die(error instanceof SnapshotReadError
+    ? `${file}: ${error.message}`
+    : `could not read ${file}: ${error.message}`);
 }
 
 let report;

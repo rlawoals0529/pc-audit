@@ -113,6 +113,11 @@ makes no network requests at all after it loads - or run it locally:
 node bin/pc-audit.mjs report.json --profile fps
 ```
 
+Any encoding works. Windows PowerShell 5.1 - the one that ships with Windows - writes `>`
+redirection as UTF-16 with a byte order mark, and the reader handles that, UTF-8 with a mark,
+and UTF-8 without one. Telling you to add an encoding flag would have been the lazy fix; this
+was found by CI on a real Windows runner rather than by anyone reading the code.
+
 No install and no build step: the CLI imports the analyzer straight from `src/*.ts`, which
 Node does on its own from 22.18. That is why every import here carries an explicit `.ts`
 extension.
@@ -138,7 +143,7 @@ Worth being exact about, since half of this repo targets an operating system:
 
 | | |
 | --- | --- |
-| The analyzer, profiles, cost model, ranking, report | 35 unit tests |
+| The analyzer, profiles, cost model, ranking, report, file encodings | 45 unit tests |
 | The page, in all 15 palettes over a white and a black backdrop | 13 browser tests, contrast measured rather than eyeballed |
 | The collector cannot write, cannot send, and wraps every source | checked by scanning the source, in the fast suite |
 | **The collector actually runs** | **CI, on a real `windows-latest` runner** - it collects, the snapshot is checked for shape, and all four profiles are built from it |

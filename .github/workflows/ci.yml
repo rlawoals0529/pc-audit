@@ -71,14 +71,29 @@ jobs:
           Write-Host "services: $($snapshot.services.Count), displays: $($snapshot.displays.Count)"
           if ($snapshot.services.Count -lt 10) { throw 'a Windows machine has more services than that; the reader is broken' }
 
+      - name: The analyzer reads what PowerShell 5.1 actually wrote
+        shell: pwsh
+        run: |
+          # Its own step, because this is what found the encoding bug. Windows PowerShell 5.1
+          # writes redirected output as UTF-16LE with a byte order mark, and reading that as
+          # UTF-8 fails on byte one of the file the README tells you to make. Keeping it
+          # separate means a regression names itself instead of surfacing as a JSON error
+          # several steps later.
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path report.json))
+          Write-Host ("first four bytes: " + ($bytes[0..3] -join ' '))
+          node bin/pc-audit.mjs report.json --profile default | Select-Object -First 3
+
       - name: The analyzer reads it, in every profile
         shell: pwsh
         run: |
-          foreach ($profile in 'default', 'fps', 'boot', 'battery') {
-            node bin/pc-audit.mjs report.json --profile $profile --json > "out-$profile.json"
-            $report = Get-Content "out-$profile.json" -Raw | ConvertFrom-Json
-            if (-not $report.profile.id) { throw "no profile in the $profile report" }
-            Write-Host "$profile : $($report.costs.Count) costs, $($report.risks.Count) risks, $($report.gaps.Count) gaps"
+          # $goal, not $profile. $profile is a PowerShell automatic variable holding the path
+          # to the profile script, and binding it in a foreach is the same hazard the collector
+          # had with $event.
+          foreach ($goal in 'default', 'fps', 'boot', 'battery') {
+            node bin/pc-audit.mjs report.json --profile $goal --json > "out-$goal.json"
+            $report = Get-Content "out-$goal.json" -Raw | ConvertFrom-Json
+            if (-not $report.profile.id) { throw "no profile in the $goal report" }
+            Write-Host "$goal : $($report.costs.Count) costs, $($report.risks.Count) risks, $($report.gaps.Count) gaps"
           }
 
       - name: -Redact takes the identifying parts out, and leaves valid JSON
