@@ -1,7 +1,7 @@
 // Vendored from yozora/js/theme.test.ts. Refresh with `node scripts/vendor.mjs` there,
 // never edit here.
 import { describe, expect, it } from "vitest";
-import { createThemeStore, grouped, type Theme, type ThemeHost } from "./theme";
+import { createThemeStore, DEFAULT_THEME, grouped, type Theme, type ThemeHost } from "./theme";
 
 const THEMES: Theme[] = [
   { id: "rain-lantern", label: "Rain Lantern", accent: "#ff7a4d", scheme: "dark" },
@@ -73,4 +73,25 @@ describe("grouped", () => {
     const light = THEMES.find((x) => x.scheme === "light")!;
     expect(grouped([light]).map((g) => g.scheme)).toEqual(["light"]);
   });
+});
+
+describe("the default palette", () => {
+  /*
+   * Pinned here and nowhere else, because this file is vendored into a dozen projects.
+   *
+   * An earlier version of this also read the palette list off disk to prove the default names
+   * a palette that exists. That check is worth having and this is the wrong place for it: it
+   * needs node:fs, which three consumers do not have in their tsconfig types, and it has to
+   * guess which layout it landed in. It lives in js/palettes.test.ts, which is not vendored,
+   * where the palettes actually are.
+   */
+  it("is twilight-comet, which every page in the set opens on", () => {
+    /*
+     * Pinned, because the whole point of the constant is that nobody retypes it. A test that
+     * only checked "some palette is the default" would pass while a project quietly opened on
+     * a different one, which is the exact failure this constant was added to stop.
+     */
+    expect(DEFAULT_THEME).toBe("twilight-comet");
+  });
+
 });

@@ -15,7 +15,7 @@ import { build, describeTotal, ReportError, type Report } from "../src/report.ts
 import { PROFILES, profileById, type Profile } from "../src/profiles.ts";
 import { REFUSALS } from "../src/refusals.ts";
 import { UNITS, type Finding, type Snapshot } from "../src/model.ts";
-import { createThemeStore, grouped, type Theme } from "../lib/theme.ts";
+import { createThemeStore, DEFAULT_THEME, grouped, type Theme } from "../lib/theme.ts";
 import { wirePalette } from "../lib/palette-keys.ts";
 import sample from "../fixtures/sample.json";
 import palettes from "../theme/palettes.json";
@@ -243,7 +243,7 @@ for (const refusal of REFUSALS) {
 /* ---- Palette --------------------------------------------------------------------------- */
 
 const themes = palettes as unknown as Theme[];
-const store = createThemeStore(themes, "moonlit-skyline", "pc-audit:theme");
+const store = createThemeStore(themes, DEFAULT_THEME, "pc-audit:theme");
 const paletteRow = el("palette");
 
 for (const group of grouped(themes)) {

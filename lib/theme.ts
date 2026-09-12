@@ -23,6 +23,20 @@
 
 export type Theme = { id: string; label: string; accent: string; scheme: "light" | "dark" };
 
+/**
+ * The palette every page here opens on.
+ *
+ * A constant rather than a string each project types out, because the projects are read one
+ * after another. A visitor moving between them should not get a different scheme each time -
+ * that reads as unrelated pages rather than as one body of work - so this is the one part of
+ * the look that is deliberately shared. Everything else about how a project looks is its own.
+ *
+ * It lives here because a string retyped in a dozen places is a convention, and a convention
+ * is what a new project quietly breaks: two of them shipped on the wrong palette before this
+ * existed, each one correct in isolation and wrong beside the others.
+ */
+export const DEFAULT_THEME = "twilight-comet";
+
 /** The bits of the page this touches. Small on purpose: it is the whole surface to fake. */
 export type ThemeHost = {
   get(key: string): string | null;
