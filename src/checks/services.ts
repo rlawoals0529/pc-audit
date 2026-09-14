@@ -19,9 +19,9 @@ export function unclaimed(services: ServiceItem[]): ServiceItem[] {
 export const idleServices: Check = {
   id: "idle-services",
   rationale:
-    "Third-party services that are running now, start automatically, and have no declared " +
-    "service dependents. The third-party classification is only used when the collector could " +
-    "verify the service executable as non-Microsoft; unknown signatures are not called third-party.",
+    "Services that are running now, start automatically, and have no declared service dependents. " +
+    "The current collector uses the executable path as a conservative Microsoft/non-Microsoft " +
+    "heuristic; it is not a digital-signature claim.",
 
   run(snapshot) {
     const found = unclaimed(list(snapshot.services));
@@ -31,12 +31,14 @@ export const idleServices: Check = {
 
     return [{
       id: "idle-services",
-      title: `${found.length} third-party services start automatically and have no declared dependents`,
+      title: `${found.length} services outside Windows system directories start automatically and have no declared dependents`,
       detail:
-        `${found.map((s) => s.display ?? s.name).join(", ")}. "No declared dependents" means no ` +
-        `other Windows service declares one of these as a dependency. It does not mean that no ` +
-        `application needs it. Updaters, license daemons, VPN agents, RGB tools and driver helpers ` +
-        `can be intentionally independent. This is a review list, not a disable list.` +
+        `${found.map((s) => s.display ?? s.name).join(", ")}. The collector classifies a service as ` +
+        `Microsoft when its executable path is under a Windows system directory; that is only a ` +
+        `heuristic and can miss Microsoft software installed elsewhere or third-party software using ` +
+        `a system path. "No declared dependents" means no other Windows service declares it as a ` +
+        `dependency. It does not mean that no application needs it. This is a review list, not a ` +
+        `disable list.` +
         (withMemory.length < found.length
           ? ` Memory is shown for ${withMemory.length} of ${found.length}; the rest had no working-set reading.`
           : ""),
@@ -47,7 +49,7 @@ export const idleServices: Check = {
       tier: "likely" as const,
       sources: [{
         from: "Win32_Service and Win32_DependentService",
-        note: `${found.length} matched, ${withMemory.length} reported memory`,
+        note: `${found.length} matched, ${withMemory.length} reported memory; Microsoft classification is path-based`,
       }],
       remedy: "Get-Service | Where-Object { $_.Status -eq 'Running' } | Sort-Object DisplayName",
     }] satisfies Finding[];
@@ -58,7 +60,8 @@ export const logonTasks: Check = {
   id: "logon-tasks",
   rationale:
     "Scheduled tasks that fire at logon are another startup mechanism. They are listed when " +
-    "the collector can identify them as non-Microsoft; the task list does not measure their boot cost.",
+    "the collector's author/path fields classify them as non-Microsoft; the task list does not " +
+    "measure their boot cost.",
 
   run(snapshot) {
     const atLogon = list(snapshot.tasks).filter(
@@ -78,7 +81,7 @@ export const logonTasks: Check = {
         `they can be easy to miss and may be worth reviewing individually.`,
       impact: { measured: {}, unquantified: ["bootMs", "cpuPercent"] },
       tier: "situational" as const,
-      sources: [{ from: "Get-ScheduledTask", note: `${atLogon.length} at logon, ${third.length} classified as non-Microsoft` }],
+      sources: [{ from: "Get-ScheduledTask", note: `${atLogon.length} at logon, ${third.length} classified as non-Microsoft by author/path` }],
       remedy: "Get-ScheduledTask | Where-Object { $_.Triggers.CimClass.CimClassName -match 'Logon' }",
     }];
   },
