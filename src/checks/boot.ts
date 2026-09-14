@@ -3,15 +3,13 @@
  *
  * Windows times its own boot and writes the result to
  * Microsoft-Windows-Diagnostics-Performance/Operational. Event 100 carries the totals; events
- * 101 to 110 name the individual applications, services and drivers it considers to have
- * degraded the boot, each with a millisecond figure. That log is on by default, nobody reads
- * it, and it is strictly better evidence than any list of programs to disable: it is your
- * machine's own measurement of your machine.
+ * 101 to 110 name the individual applications, services and drivers it considered to have
+ * degraded the boot. The report treats those values as Windows attribution, not as an additive
+ * bill: multiple components can overlap in the same boot.
  */
 import type { BootRecord, Check } from "../model.ts";
 import { list } from "../shape.ts";
 
-/** The middle value, so one pathological boot after a Windows update does not set the tone. */
 export function median(values: number[]): number | null {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
   if (!sorted.length) return null;
@@ -19,49 +17,62 @@ export function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
-/** Everything Windows blamed, summed per name across the boots we have. */
+/**
+ * For each component, use one value per boot and take the median across those boots. This avoids
+ * a long event-log history making a component look more expensive simply because it appeared
+ * more often, and it avoids counting duplicate events from the same boot as separate costs.
+ */
 export function blamed(boots: BootRecord[]): { name: string; kind: string; ms: number; boots: number }[] {
-  const totals = new Map<string, { name: string; kind: string; ms: number; boots: number }>();
+  const perName = new Map<string, { name: string; kind: string; samples: number[] }>();
   for (const boot of boots) {
+    const perBoot = new Map<string, { name: string; kind: string; ms: number }>();
     for (const item of list(boot.degraded)) {
       if (!Number.isFinite(item.ms)) continue;
-      const seen = totals.get(item.name) ?? { name: item.name, kind: item.kind, ms: 0, boots: 0 };
-      seen.ms += item.ms;
-      seen.boots += 1;
-      totals.set(item.name, seen);
+      const previous = perBoot.get(item.name);
+      if (!previous) perBoot.set(item.name, { name: item.name, kind: item.kind, ms: item.ms });
+      else previous.ms += item.ms;
+    }
+    for (const item of perBoot.values()) {
+      const existing = perName.get(item.name);
+      if (existing) existing.samples.push(item.ms);
+      else perName.set(item.name, { name: item.name, kind: item.kind, samples: [item.ms] });
     }
   }
-  // The median across the boots it appeared in, not the sum: the sum grows with how long
-  // the log happens to go back, which is a property of the log rather than of the machine.
-  return [...totals.values()].map((t) => ({ ...t, ms: t.ms / t.boots }));
+  return [...perName.values()]
+    .map((item) => ({
+      name: item.name,
+      kind: item.kind,
+      ms: median(item.samples)!,
+      boots: item.samples.length,
+    }))
+    .sort((a, b) => b.ms - a.ms);
 }
 
 export const bootDegraded: Check = {
   id: "boot-degraded",
   rationale:
-    "Windows already timed each thing that slowed the boot down and wrote the number to the " +
-    "event log. Reading it beats any general list of programs to disable.",
+    "Windows already timed the things it attributed to degraded boots. Reading that evidence is " +
+    "more defensible than using a generic list of programs to disable.",
 
   run(snapshot) {
     const boots = list(snapshot.boot);
     if (!boots.length) return [];
     return blamed(boots)
-      // Under a fifth of a second is below what anybody notices, and reporting it turns a
-      // short actionable list into a long one nobody finishes.
       .filter((item) => item.ms >= 200)
       .map((item) => ({
         id: `boot-degraded:${item.name}`,
         title: `${item.name} added ${(item.ms / 1000).toFixed(1)}s to boot`,
         detail:
-          `Windows recorded this ${item.kind} as degrading the boot in ${item.boots} of the last ` +
-          `${boots.length} boots, costing ${Math.round(item.ms)}ms on average. This is its own ` +
-          `measurement, not an estimate. It is not automatically something to remove: the number ` +
-          `says what it costs, not whether you want it.`,
+          `Windows attributed this ${item.kind} to degraded boot time in ${item.boots} of the last ` +
+          `${boots.length} recorded boots, with a median attribution of ${Math.round(item.ms)}ms. ` +
+          `That is Windows' measurement for the component, not a claim that the value can be added ` +
+          `to every other component: these attributions can overlap. The number says what Windows ` +
+          `observed, not whether you should remove the component.`,
         impact: { measured: { bootMs: item.ms }, unquantified: [] },
         tier: "certain" as const,
         sources: [{
           from: "Microsoft-Windows-Diagnostics-Performance/Operational, events 101-110",
-          note: `${item.boots} of ${boots.length} boots`,
+          note: `${item.boots} of ${boots.length} boots; median attribution`,
         }],
         remedy:
           item.kind === "service"
@@ -74,43 +85,31 @@ export const bootDegraded: Check = {
 export const bootTrend: Check = {
   id: "boot-trend",
   rationale:
-    "One boot time is noise. A median over the last several, next to the median of the ones " +
-    "before them, is the only way to say whether a machine is actually getting slower.",
+    "One boot time is noise. A median over recent boots compared with earlier boots is a more " +
+    "stable way to identify a meaningful change.",
 
   run(snapshot) {
-    const boots = (list(snapshot.boot)).filter((b) => Number.isFinite(b.bootMs));
-    // Three each side, so "recent" and "earlier" are each a median rather than a reading.
+    const boots = list(snapshot.boot).filter((b) => Number.isFinite(b.bootMs));
     if (boots.length < 6) return [];
-    const times = boots.map((b) => b.bootMs!);
-    const recent = median(times.slice(0, Math.floor(times.length / 2)))!;
-    const earlier = median(times.slice(Math.floor(times.length / 2)))!;
+    const half = Math.floor(boots.length / 2);
+    const recent = median(boots.slice(0, half).map((b) => b.bootMs!))!;
+    const earlier = median(boots.slice(half).map((b) => b.bootMs!))!;
     const growth = recent - earlier;
-    // A fifth slower AND at least two seconds. Either alone fires on a machine that boots in
-    // three seconds and now boots in three and a half, which is not news.
     if (growth < 2000 || recent < earlier * 1.2) return [];
 
     return [{
       id: "boot-trend",
       title: `Boot is ${(growth / 1000).toFixed(1)}s slower than it was`,
       detail:
-        `Median of the ${Math.floor(times.length / 2)} most recent boots is ` +
-        `${(recent / 1000).toFixed(1)}s against ${(earlier / 1000).toFixed(1)}s for the ones before. ` +
-        `Medians rather than averages, because one boot after a Windows update is not evidence ` +
-        `of anything. This says something changed; the findings above say what.`,
-      /*
-       * Deliberately not measured in bootMs, though a millisecond figure is right there.
-       *
-       * This finding is a summary of the others, not a charge alongside them: the seconds
-       * the trend is up ARE the seconds the degraded items below cost. The first version put
-       * growth in the currency and the report totalled 25 seconds on a machine that had lost
-       * about nine - the trend counted once as itself and again as its own causes. A total is
-       * only meaningful over independent charges, so a summary carries none.
-       */
+        `Median of the ${half} most recent recorded boots is ${(recent / 1000).toFixed(1)}s against ` +
+        `${(earlier / 1000).toFixed(1)}s for the earlier ${boots.length - half}. Medians reduce the ` +
+        `effect of one unusual boot. This is a trend signal, not an additional boot-time charge, ` +
+        `so it is deliberately excluded from the total below.`,
       impact: { measured: {}, unquantified: [] },
       tier: "certain" as const,
       sources: [{
         from: "Microsoft-Windows-Diagnostics-Performance/Operational, event 100",
-        note: `${times.length} boots on record`,
+        note: `${boots.length} boots on record`,
       }],
       remedy: null,
     }];
@@ -120,15 +119,13 @@ export const bootTrend: Check = {
 export const startupItems: Check = {
   id: "startup-items",
   rationale:
-    "The things that run when you log in. Cross-referenced against the boot log, so the ones " +
-    "Windows actually timed carry their number and the rest are honest about having none.",
+    "The things that run when you log in. Cross-referenced against the boot log so the report " +
+    "does not print the same measured component twice.",
 
   run(snapshot) {
     const enabled = list(snapshot.startup).filter((s) => s.enabled !== false && s.name);
     if (!enabled.length) return [];
     const timed = new Set(blamed(list(snapshot.boot)).map((b) => b.name.toLowerCase()));
-    // Anything the boot log already timed is reported by boot-degraded, with its cost. Listing
-    // it again here without one would be the same item twice, worse the second time.
     const untimed = enabled.filter((s) => !timed.has((s.name ?? "").toLowerCase()));
     if (!untimed.length) return [];
 
@@ -136,15 +133,14 @@ export const startupItems: Check = {
       id: "startup-items",
       title: `${untimed.length} programs start when you log in, none of them timed by Windows`,
       detail:
-        `${untimed.map((s) => s.name).join(", ")}. Windows did not record any of these as ` +
-        `degrading the boot, which is weak evidence that they are cheap and no evidence at all ` +
-        `about what they cost while running. They are listed because you may not know they are ` +
-        `there, not because there is a number attached to them.`,
+        `${untimed.map((s) => s.name).join(", ")}. Their absence from the degraded-boot event list ` +
+        `does not prove they are cheap; it only means this snapshot has no component-level boot ` +
+        `measurement for them. They are listed because you may not know they start automatically.`,
       impact: { measured: {}, unquantified: ["bootMs", "memoryMb", "cpuPercent"] },
       tier: "situational" as const,
       sources: [{
         from: "Win32_StartupCommand and Explorer StartupApproved",
-        note: `${enabled.length} enabled, ${untimed.length} with no entry in the boot log`,
+        note: `${enabled.length} enabled, ${untimed.length} without a matching degraded-boot entry`,
       }],
       remedy: "Task Manager > Startup apps",
     }];
