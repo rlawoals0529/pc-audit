@@ -10,7 +10,7 @@ import { displayRefresh } from "./display.ts";
 import { bootDegraded, bootTrend, startupItems } from "./boot.ts";
 import { driverAge, gameDvr, hags } from "./graphics.ts";
 import { idleServices, logonTasks } from "./services.ts";
-import { defenderOff, fragmentation, memoryPressure, powerPlan, systemDrive, updatesDisabled } from "./system.ts";
+import { defenderOff, memoryPressure, powerPlan, systemDrive, updatesDisabled } from "./system.ts";
 
 export const CHECKS: Check[] = [
   displayRefresh,
@@ -23,7 +23,6 @@ export const CHECKS: Check[] = [
   idleServices,
   logonTasks,
   systemDrive,
-  fragmentation,
   memoryPressure,
   powerPlan,
   defenderOff,
