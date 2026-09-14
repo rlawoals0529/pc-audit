@@ -9,28 +9,25 @@ const STALE_DRIVER_DAYS = 120;
 export const gameDvr: Check = {
   id: "game-dvr",
   rationale:
-    "Background recording is a specific Windows Game DVR setting. The general Game DVR switch " +
-    "does not prove that the rolling capture buffer is enabled, so this check reads only the " +
-    "historical-capture setting.",
+    "The collector currently reads the general Game DVR switch. That tells us Game DVR is enabled, " +
+    "but it does not prove that historical/background recording is enabled, so this finding never " +
+    "recommends changing the Record what happened setting.",
 
   run(snapshot) {
     if (snapshot.graphics?.gameDvr !== true) return [];
     return [{
       id: "game-dvr",
-      title: "Game DVR background recording is on",
+      title: "Game DVR is enabled",
       detail:
-        "Windows is configured to keep a rolling buffer for historical game capture. That can " +
-        "keep a capture pipeline active during supported sessions even when you never save a clip. " +
-        "The performance cost is not measured by this audit, so no FPS, frame-time, CPU, or power " +
-        "number is claimed. Turning this setting off removes historical capture; it does not by " +
-        "itself disable every Game Bar feature.",
+        "Windows reports the general Game DVR setting as enabled. This is not the same measurement " +
+        "as the historical-capture buffer used by the Settings option named Record what happened. " +
+        "Because this snapshot does not contain the historical-capture value, the audit does not " +
+        "claim that background recording is running and does not tell you to turn that setting off. " +
+        "If background recording matters to your workload, check Settings > Gaming > Captures directly.",
       impact: { measured: {}, unquantified: ["frameTimeMs", "cpuPercent"] },
-      tier: "likely",
-      sources: [{
-        from: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR\\HistoricalCaptureEnabled",
-        note: "1",
-      }],
-      remedy: "Settings > Gaming > Captures > Record what happened > Off",
+      tier: "situational",
+      sources: [{ from: "HKCU\\System\\GameConfigStore\\GameDVR_Enabled", note: "1" }],
+      remedy: "Settings > Gaming > Captures",
     }];
   },
 };
@@ -47,9 +44,9 @@ export const hags: Check = {
       id: "hags",
       title: "Hardware-accelerated GPU scheduling is off",
       detail:
-        "This changes where GPU scheduling work is performed. Whether it helps depends on the " +
-        "GPU, driver, game, and capture or overlay software in use. It is listed as a setting to " +
-        "test, not as a guaranteed performance loss, and this audit does not assign it an FPS value.",
+        "This changes where GPU scheduling work is performed. Whether it helps depends on the GPU, " +
+        "driver, game, and capture or overlay software in use. It is listed as a setting to test, " +
+        "not as a guaranteed performance loss, and this audit does not assign it an FPS value.",
       impact: { measured: {}, unquantified: ["frameTimeMs"] },
       tier: "situational",
       sources: [{ from: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers\\HwSchMode" }],
@@ -61,8 +58,8 @@ export const hags: Check = {
 export const driverAge: Check = {
   id: "gpu-driver-age",
   rationale:
-    "Driver age is measurable, but age alone is not proof that a driver is bad. This check " +
-    "flags unusually old drivers as something worth checking rather than promising a performance gain.",
+    "Driver age is measurable, but age alone is not proof that a driver is bad. This check flags " +
+    "unusually old drivers as something worth checking rather than promising a performance gain.",
 
   run(snapshot) {
     const findings: Finding[] = [];
