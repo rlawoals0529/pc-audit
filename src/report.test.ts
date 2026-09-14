@@ -28,8 +28,6 @@ describe("checks", () => {
   });
 
   it("never puts a number in a dimension it also calls unquantified", () => {
-    // The two halves of Impact mean opposite things. An id in both is a contradiction, and
-    // the one that would survive into the total is the fabricated one.
     for (const check of CHECKS) {
       for (const finding of check.run(sample)) {
         for (const dimension of finding.impact.unquantified) {
@@ -57,15 +55,6 @@ describe("checks", () => {
   });
 
   it("backs every measured number with a source that says what was read", () => {
-    /*
-     * The closest a test can get to "this number is not made up".
-     *
-     * Nothing can mechanically prove a figure came from somewhere, but a check that measures a
-     * dimension and cites no reading for it is either fabricating or has lost its evidence,
-     * and both are worth failing on. A source note is the string a reader follows to go and
-     * check the number themselves, which is the whole basis on which this report asks to be
-     * believed.
-     */
     for (const check of CHECKS) {
       for (const finding of check.run(sample)) {
         if (!Object.keys(finding.impact.measured).length) continue;
@@ -91,18 +80,13 @@ describe("profiles", () => {
     const boot = build(sample, profile("boot"));
     const fpsIds = fps.costs.map((f) => f.id);
     const bootIds = boot.costs.map((f) => f.id);
-
-    // The refresh rate is the whole point of the fps profile and is silent about startup.
     expect(fpsIds.some((id) => id.startsWith("display-refresh"))).toBe(true);
     expect(bootIds.some((id) => id.startsWith("display-refresh"))).toBe(false);
-    // And the reverse: what Windows blamed for the boot is not an answer about frame rate.
     expect(bootIds.some((id) => id.startsWith("boot-degraded"))).toBe(true);
     expect(fpsIds.some((id) => id.startsWith("boot-degraded"))).toBe(false);
   });
 
   it("drop what they exclude rather than listing it last", () => {
-    // Demoting is not the same as excluding: a boot finding at the bottom of an fps report is
-    // still a line somebody reads and acts on.
     const fps = build(sample, profile("fps"));
     for (const finding of fps.costs) expect(relevantTo(profile("fps"), finding), finding.id).toBe(true);
   });
@@ -140,8 +124,6 @@ describe("the total", () => {
   });
 
   it("never quietly counts a finding that measured something else", () => {
-    // The failure this guards is a memory figure landing in a millisecond total because both
-    // are numbers. The fps profile's currency is frame time, and only the display check has it.
     const fps = build(sample, profile("fps"));
     const contributors = fps.costs.filter((f) => f.impact.measured.frameTimeMs != null);
     expect(contributors.map((f) => f.id).every((id) => id.startsWith("display-refresh"))).toBe(true);
@@ -183,15 +165,6 @@ describe("honesty about what was not read", () => {
   });
 
   it("reports a check that throws instead of losing the whole run", () => {
-    /*
-     * A throwing getter, because a merely WRONG value no longer explodes.
-     *
-     * This used to pass a bare object as `displays`, which crashed the check - until list()
-     * started wrapping exactly that shape, since a machine with one display really does send
-     * it. The test would then have kept passing for a new reason: nothing threw at all.
-     * Reaching for something that throws when read keeps the test about what it claims to be
-     * about, which is what the report does with a check that dies rather than what kills one.
-     */
     const exploding = { ...sample };
     Object.defineProperty(exploding, "displays", {
       get() { throw new TypeError("this field cannot be read"); },
@@ -201,15 +174,19 @@ describe("honesty about what was not read", () => {
     expect(report.risks.map((f) => f.id)).toContain("check-failed:display-refresh");
     expect(report.risks.find((f) => f.id === "check-failed:display-refresh")!.detail)
       .toContain("this field cannot be read");
-    // And the rest of the report survived.
     expect(report.costs.length).toBeGreaterThan(0);
   });
 });
 
 describe("the refusal list", () => {
-  it("is reachable from the findings that would otherwise recommend one", () => {
+  it("includes every refusal referenced by the current findings", () => {
     const report = build(sample, profile("default"));
-    expect(report.refusals.map((r) => r.id)).toContain("defragment-an-ssd");
+    const referenced = [...new Set(
+      CHECKS.flatMap((check) => check.run(sample))
+        .map((finding) => finding.refusal)
+        .filter((id): id is string => Boolean(id)),
+    )];
+    expect(report.refusals.map((r) => r.id)).toEqual(expect.arrayContaining(referenced));
   });
 
   it("has a unique id, a claim and a reason for every entry", () => {
